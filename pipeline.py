@@ -2,8 +2,7 @@ import logging
 import apache_beam as beam
 import argparse
 from datetime import datetime
-
-from pyarrow import duration
+import requests
 
 
 def parse_lines(element):
@@ -17,6 +16,14 @@ class CalcVisitDuration(beam.DoFn):
         
         diff = end_dt - start_dt
         yield[element[0], diff.total_seconds()]
+        
+class GetIpCountryOrigion(beam.DoFn):
+    def process(self, element):
+        ip = element[0]
+        response = requests.get(f'http://ip-api.com/json/{ip}?fields=country')
+        country = response.json()['country']
+        yield[ip, country]
+        
 
 def run(argv=None):
         parser = argparse.ArgumentParser()
@@ -30,7 +37,11 @@ def run(argv=None):
                     | "ParseLines" >> beam.Map(parse_lines)
             )
             duration = lines | "CalcVisitDuration" >> beam.ParDo(CalcVisitDuration())
-            duration | beam.Map(print)
+            ip_map = lines | "GetIpCountryOrigion" >> beam.ParDo(GetIpCountryOrigion())
+            
+            result = duration | "MapIpToCountry" >> beam.Map(function_name, ip_map=)
+            
+            ip_map | beam.Map(print)
 
 if __name__ == '__main__':
     logging.getLogger().setLevel(logging.WARNING)
