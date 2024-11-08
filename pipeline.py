@@ -53,7 +53,7 @@ def run(argv=None):
                     
             )
         
-            result | beam.Map(print)
+            result | "WriteOutput" >> beam.io.WriteToText(args.output, file_name_suffix='.csv')
 
 if __name__ == '__main__':
     logging.getLogger().setLevel(logging.WARNING)
