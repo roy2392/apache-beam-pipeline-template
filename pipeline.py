@@ -24,6 +24,11 @@ class GetIpCountryOrigion(beam.DoFn):
         country = response.json()['country']
         yield[ip, country]
         
+def map_country_to_ip(element, ip_map):
+    ip = element[0]
+    country = ip_map[ip]
+    return [ip_map[ip], element[1]]
+        
 
 def run(argv=None):
         parser = argparse.ArgumentParser()
@@ -39,9 +44,16 @@ def run(argv=None):
             duration = lines | "CalcVisitDuration" >> beam.ParDo(CalcVisitDuration())
             ip_map = lines | "GetIpCountryOrigion" >> beam.ParDo(GetIpCountryOrigion())
             
-            result = duration | "MapIpToCountry" >> beam.Map(function_name, ip_map=)
-            
-            ip_map | beam.Map(print)
+            result = (
+                    duration
+                    | "MapIpToCountry" >> beam.Map(map_country_to_ip, ip_map=beam.pvalue.AsDict(ip_map))
+                    | "AverageByCountry" >> beam.CombinePerKey(beam.combiners.MeanCombineFn())
+                    | "FormatOutput" >> beam.Map(lambda element: ",".join(map(str, element)))
+                    
+                    
+            )
+        
+            result | beam.Map(print)
 
 if __name__ == '__main__':
     logging.getLogger().setLevel(logging.WARNING)
